@@ -12,7 +12,7 @@ const justPressed = {};
 window.addEventListener('keydown', e => {
   justPressed[e.code] = !keys[e.code];
   keys[e.code] = true;
-  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code))
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))
     e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -256,7 +256,7 @@ class Ship {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = SKINS[currentSkin].color;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -275,7 +275,7 @@ class Ship {
       ctx.moveTo(-8, -4);
       ctx.lineTo(-8 - rand(6, 14), 0);
       ctx.lineTo(-8,  4);
-      ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
+      ctx.strokeStyle = SKINS[currentSkin].flame;
       ctx.stroke();
     }
 
@@ -335,6 +335,30 @@ let asteroidKills;
 let scoreThreshold;
 const SPEED_BOOST_DURATION = 5;
 const BOOST_CHANCE = 0.35;
+
+const SKINS = [
+  { name: 'Clásico',   color: '#fff',    flame: 'rgba(255,130,0,0.85)'   },
+  { name: 'Neón',      color: '#0ff',    flame: 'rgba(120,255,220,0.85)' },
+  { name: 'Fuego',     color: '#ff6a2a', flame: 'rgba(255,70,0,0.9)'     },
+  { name: 'Esmeralda', color: '#4ade80', flame: 'rgba(120,255,160,0.85)' },
+];
+
+function loadSkin() {
+  const stored = localStorage.getItem('asteroids-skin');
+  if (stored == null) return 0;
+  const idx = Number(stored);
+  return (Number.isFinite(idx) && idx >= 0 && idx < SKINS.length) ? idx : 0;
+}
+
+function setSkin(i) {
+  if (i >= 0 && i < SKINS.length) {
+    currentSkin = i;
+    localStorage.setItem('asteroids-skin', String(i));
+  }
+}
+
+let currentSkin = loadSkin();
+let skinsCursor;
 
 function spawnAsteroids(count) {
   const SAFE_DIST = 130;
@@ -400,6 +424,17 @@ function killShip() {
 function update(dt) {
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
+    if (pressed('KeyS')) { state = 'skins'; skinsCursor = currentSkin; return; }
+    particles.forEach(p => p.update(dt));
+    particles = particles.filter(p => !p.dead);
+    return;
+  }
+
+  if (state === 'skins') {
+    if (pressed('ArrowLeft'))  skinsCursor = (skinsCursor - 1 + SKINS.length) % SKINS.length;
+    if (pressed('ArrowRight')) skinsCursor = (skinsCursor + 1) % SKINS.length;
+    if (pressed('Enter') || pressed('Space')) { setSkin(skinsCursor); state = 'gameover'; }
+    if (pressed('Escape') || pressed('Backspace')) { state = 'gameover'; }
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => !p.dead);
     return;
@@ -527,7 +562,7 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = SKINS[currentSkin].color;
   ctx.lineWidth   = 1.2;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
@@ -584,6 +619,83 @@ function drawOverlay(title, sub) {
   ctx.fillText(sub, W / 2, H / 2 + 22);
 }
 
+function drawSkinsMenu() {
+  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 36px monospace';
+  ctx.fillText('SKINS', W / 2, 80);
+
+  const spacing = 160;
+  const startX  = W / 2 - (SKINS.length - 1) * spacing / 2;
+  const previewY = H / 2 - 10;
+  const SHIP_SCALE = 1.8;
+
+  for (let i = 0; i < SKINS.length; i++) {
+    const x = startX + i * spacing;
+    const y = previewY;
+    const sel = i === skinsCursor;
+
+    if (sel) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 2;
+      const bx = x - 44;
+      const by = y - 48;
+      const bw = 88;
+      const bh  = 100;
+      ctx.beginPath();
+      ctx.moveTo(bx + 8, by);
+      ctx.lineTo(bx + bw - 8, by);
+      ctx.arcTo(bx + bw, by, bx + bw, by + 8, 8);
+      ctx.lineTo(bx + bw, by + bh - 8);
+      ctx.arcTo(bx + bw, by + bh, bx + bw - 8, by + bh, 8);
+      ctx.lineTo(bx + 8, by + bh);
+      ctx.arcTo(bx, by + bh, bx, by + bh - 8, 8);
+      ctx.lineTo(bx, by + 8);
+      ctx.arcTo(bx, by, bx + 8, by, 8);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-Math.PI / 2);
+    ctx.strokeStyle = SKINS[i].color;
+    ctx.lineWidth = 2.2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo( 9 * SHIP_SCALE,  0);
+    ctx.lineTo(-6 * SHIP_SCALE, -5 * SHIP_SCALE);
+    ctx.lineTo(-3 * SHIP_SCALE,  0);
+    ctx.lineTo(-6 * SHIP_SCALE,  5 * SHIP_SCALE);
+    ctx.closePath();
+    ctx.stroke();
+
+    if (sel) {
+      ctx.strokeStyle = SKINS[i].flame;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-4, -2.2);
+      ctx.lineTo(-15, 0);
+      ctx.lineTo(-4, 2.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = sel ? '#fff' : 'rgba(255,255,255,0.45)';
+    ctx.font = sel ? 'bold 16px monospace' : '14px monospace';
+    ctx.fillText(SKINS[i].name, x, previewY + 62);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '15px monospace';
+  ctx.fillText('← →  SELECCIONAR    ENTER  CONFIRMAR    ESC  CANCELAR', W / 2, H - 38);
+}
+
 function draw() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
@@ -597,7 +709,10 @@ function draw() {
   drawHUD();
 
   if (state === 'gameover')
-    drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO PARA REINICIAR`);
+    drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO REINICIAR   —   S SKINS`);
+
+  if (state === 'skins')
+    drawSkinsMenu();
 }
 
 // ── Loop principal ────────────────────────────────────────────────────────────
