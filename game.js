@@ -140,8 +140,8 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
 
-    const ROT   = 3.5;   // rad/s
-    const THRUST = 260;  // px/s²
+    const ROT   = 3.5;
+    const THRUST = speedBoost > 0 ? 520 : 260;
     const DRAG   = 0.987;
 
     if (keys['ArrowLeft'])  this.angle -= ROT * dt;
@@ -176,6 +176,16 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
+
+    if (speedBoost > 0) {
+      const pulse = 14 + Math.sin(performance.now() / 80) * 3;
+      ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.strokeStyle = '#fff';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
@@ -240,6 +250,11 @@ let ship, bullets, asteroids, particles;
 let score, lives, level;
 let state;      // 'playing' | 'dead' | 'gameover'
 let deadTimer;
+let speedBoost;
+let asteroidKills;
+let scoreThreshold;
+const SPEED_BOOST_DURATION = 5;
+const BOOST_CHANCE = 0.35;
 
 function spawnAsteroids(count) {
   const SAFE_DIST = 130;
@@ -262,6 +277,9 @@ function initGame() {
   lives  = 3;
   level  = 1;
   state  = 'playing';
+  speedBoost     = 0;
+  asteroidKills  = 0;
+  scoreThreshold = 1000;
   spawnAsteroids(4);
 }
 
@@ -275,6 +293,10 @@ function nextLevel() {
 
 function explode(x, y, count = 8) {
   for (let i = 0; i < count; i++) particles.push(new Particle(x, y));
+}
+
+function maybeGrantBoost() {
+  if (Math.random() < BOOST_CHANCE) speedBoost = SPEED_BOOST_DURATION;
 }
 
 function killShip() {
@@ -312,6 +334,8 @@ function update(dt) {
     bullets.push(...ship.tryShoot());
   }
 
+  if (speedBoost > 0) speedBoost -= dt;
+
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
   asteroids.forEach(a => a.update(dt));
@@ -328,6 +352,9 @@ function update(dt) {
         b.dead = true;
         a.dead = true;
         score += POINTS[a.size];
+        asteroidKills++;
+        if (asteroidKills >= 10) { asteroidKills = 0; maybeGrantBoost(); }
+        if (score >= scoreThreshold) { scoreThreshold += 1000; maybeGrantBoost(); }
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
       }
@@ -380,6 +407,13 @@ function drawHUD() {
 
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
+
+  if (speedBoost > 0) {
+    ctx.fillStyle = 'cyan';
+    ctx.font = 'bold 17px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`VELOCIDAD ${speedBoost.toFixed(1)}s`, W / 2, H - 16);
+  }
 
 }
 
