@@ -226,7 +226,14 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
-    return [new Bullet(ox, oy, this.angle)];
+    if (tripleShot <= 0) return [new Bullet(ox, oy, this.angle)];
+    const px = -Math.sin(this.angle) * TRIPLE_SPREAD;
+    const py =  Math.cos(this.angle) * TRIPLE_SPREAD;
+    return [
+      new Bullet(ox - px, oy - py, this.angle),
+      new Bullet(ox,      oy,      this.angle),
+      new Bullet(ox + px, oy + py, this.angle),
+    ];
   }
 
   draw() {
@@ -250,6 +257,15 @@ class Ship {
     if (shieldActive) {
       const pulse = SHIELD_RADIUS + Math.sin(performance.now() / 70) * 3;
       ctx.strokeStyle = 'rgba(80,180,255,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (tripleShot > 0) {
+      const pulse = 18 + Math.sin(performance.now() / 90) * 3;
+      ctx.strokeStyle = 'rgba(255,0,255,0.7)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(0, 0, pulse, 0, Math.PI * 2);
@@ -331,10 +347,13 @@ let score, lives, level;
 let state;      // 'playing' | 'dead' | 'gameover'
 let deadTimer, starSpawnTimer;
 let speedBoost;
+let tripleShot;
 let asteroidKills;
 let scoreThreshold;
-const SPEED_BOOST_DURATION = 5;
-const BOOST_CHANCE = 0.35;
+const SPEED_BOOST_DURATION  = 5;
+const TRIPLE_SHOT_DURATION  = 5;
+const BOOST_CHANCE          = 0.35;
+const TRIPLE_SPREAD         = 7;
 
 const SKINS = [
   { name: 'Clásico',   color: '#fff',    flame: 'rgba(255,130,0,0.85)'   },
@@ -384,6 +403,7 @@ function initGame() {
   state  = 'playing';
   speedBoost     = 0;
   shieldEnergy   = SHIELD_MAX;
+  tripleShot     = 0;
   asteroidKills  = 0;
   scoreThreshold = 1000;
   starSpawnTimer = rand(4, 8);
@@ -405,7 +425,10 @@ function explode(x, y, count = 8) {
 }
 
 function maybeGrantBoost() {
-  if (Math.random() < BOOST_CHANCE) speedBoost = SPEED_BOOST_DURATION;
+  if (Math.random() < BOOST_CHANCE) {
+    if (Math.random() < 0.5) speedBoost  = SPEED_BOOST_DURATION;
+    else                      tripleShot = TRIPLE_SHOT_DURATION;
+  }
 }
 
 function killShip() {
@@ -456,7 +479,8 @@ function update(dt) {
     bullets.push(...ship.tryShoot());
   }
 
-  if (speedBoost > 0) speedBoost -= dt;
+  if (speedBoost  > 0) speedBoost  -= dt;
+  if (tripleShot  > 0) tripleShot  -= dt;
 
   const shiftHeld = keys['ShiftLeft'] || keys['ShiftRight'];
   if (shiftHeld && shieldEnergy >= SHIELD_MIN_ACT) {
@@ -588,11 +612,19 @@ function drawHUD() {
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
 
-  if (speedBoost > 0) {
-    ctx.fillStyle = 'cyan';
+  if (speedBoost > 0 || tripleShot > 0) {
     ctx.font = 'bold 17px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`VELOCIDAD ${speedBoost.toFixed(1)}s`, W / 2, H - 16);
+    let y = H - 16;
+    if (speedBoost > 0) {
+      ctx.fillStyle = 'cyan';
+      ctx.fillText(`VELOCIDAD ${speedBoost.toFixed(1)}s`, W / 2, y);
+      y -= 22;
+    }
+    if (tripleShot > 0) {
+      ctx.fillStyle = '#ff00ff';
+      ctx.fillText(`TRIPLE ${tripleShot.toFixed(1)}s`, W / 2, y);
+    }
   }
 
   const barW = 140, barH = 8, bx = 14, by = H - 22;
