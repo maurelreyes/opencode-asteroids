@@ -247,6 +247,15 @@ class Ship {
       ctx.stroke();
     }
 
+    if (shieldActive) {
+      const pulse = SHIELD_RADIUS + Math.sin(performance.now() / 70) * 3;
+      ctx.strokeStyle = 'rgba(80,180,255,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, pulse, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.strokeStyle = '#fff';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
@@ -306,6 +315,16 @@ class Particle {
   }
 }
 
+// ── Escudo ─────────────────────────────────────────────────────────────────────
+const SHIELD_MAX      = 100;
+const SHIELD_DRAIN    = 35;
+const SHIELD_REGEN    = 18;
+const SHIELD_COST_HIT = 10;
+const SHIELD_MIN_ACT  = 15;
+const SHIELD_RADIUS   = 26;
+let shieldEnergy = SHIELD_MAX;
+let shieldActive = false;
+
 // ── Estado del juego ──────────────────────────────────────────────────────────
 let ship, bullets, asteroids, particles, shootingStars;
 let score, lives, level;
@@ -340,6 +359,7 @@ function initGame() {
   level  = 1;
   state  = 'playing';
   speedBoost     = 0;
+  shieldEnergy   = SHIELD_MAX;
   asteroidKills  = 0;
   scoreThreshold = 1000;
   starSpawnTimer = rand(4, 8);
@@ -403,6 +423,16 @@ function update(dt) {
 
   if (speedBoost > 0) speedBoost -= dt;
 
+  const shiftHeld = keys['ShiftLeft'] || keys['ShiftRight'];
+  if (shiftHeld && shieldEnergy >= SHIELD_MIN_ACT) {
+    shieldActive = true;
+    shieldEnergy = Math.max(0, shieldEnergy - SHIELD_DRAIN * dt);
+    if (shieldEnergy <= 0) shieldActive = false;
+  } else {
+    shieldActive = false;
+    if (!shiftHeld) shieldEnergy = Math.min(SHIELD_MAX, shieldEnergy + SHIELD_REGEN * dt);
+  }
+
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
   asteroids.forEach(a => a.update(dt));
@@ -456,7 +486,14 @@ function update(dt) {
   // Nave vs asteroide
   if (ship.invincible <= 0) {
     for (const a of asteroids) {
-      if (dist(ship, a) < ship.radius + a.radius * 0.82) {
+      const contactDist = ship.radius + a.radius * 0.82;
+      if (shieldActive && dist(ship, a) < SHIELD_RADIUS + a.radius * 0.82) {
+        a.dead = true;
+        shieldEnergy = Math.max(0, shieldEnergy - SHIELD_COST_HIT);
+        if (shieldEnergy <= 0) shieldActive = false;
+        explode(a.x, a.y, a.size * 5);
+        asteroids.push(...a.split());
+      } else if (!shieldActive && dist(ship, a) < contactDist) {
         killShip();
         break;
       }
@@ -466,12 +503,20 @@ function update(dt) {
   // Nave vs estrella fugaz
   if (ship.invincible <= 0) {
     for (const s of shootingStars) {
-      if (dist(ship, s) < ship.radius + s.radius) {
+      const contactDist = ship.radius + s.radius;
+      if (shieldActive && dist(ship, s) < SHIELD_RADIUS + s.radius) {
+        s.dead = true;
+        shieldEnergy = Math.max(0, shieldEnergy - SHIELD_COST_HIT);
+        if (shieldEnergy <= 0) shieldActive = false;
+        explode(s.x, s.y, 12);
+      } else if (!shieldActive && dist(ship, s) < contactDist) {
         killShip();
         break;
       }
     }
   }
+
+  asteroids = asteroids.filter(a => !a.dead);
 
   // Nivel completado
   if (asteroids.length === 0) nextLevel();
@@ -514,6 +559,18 @@ function drawHUD() {
     ctx.textAlign = 'center';
     ctx.fillText(`VELOCIDAD ${speedBoost.toFixed(1)}s`, W / 2, H - 16);
   }
+
+  const barW = 140, barH = 8, bx = 14, by = H - 22;
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('ESCUDO', bx, by - 4);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, barW, barH);
+  const fillW = barW * (shieldEnergy / SHIELD_MAX);
+  ctx.fillStyle = shieldActive ? 'rgba(80,180,255,0.85)' : 'rgba(80,180,255,0.4)';
+  ctx.fillRect(bx, by, fillW, barH);
 
 }
 
