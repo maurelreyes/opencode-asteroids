@@ -9,78 +9,80 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
+      contents: write
       issues: write
 
     steps:
-      - name: Install opencode
-        run: npm install -g opencode
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-      - name: Formatear issue con opencode
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run opencode
+        uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NUMBER: ${{ github.event.issue.number }}
-          REPO: ${{ github.repository }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          cat > /tmp/issue-format-prompt.md <<'ENDOFPROMPT'
-          Tu tarea es formatear un issue recién creado en GitHub. Usa gh CLI para todo.
+        with:
+          model: opencode-go/kimi-k2.7
+          use_github_token: true
+          prompt: |
+            Tu tarea es formatear un issue recién creado en GitHub. Usa gh CLI para todo.
 
-          Datos del issue:
-          - Nº: __NUMBER__
-          - Repo: __REPO__
-          - Branch base: __DEFAULT_BRANCH__
+            Datos del issue:
+            - Nº: ${{ github.event.issue.number }}
+            - Repo: ${{ github.repository }}
+            - Branch base: ${{ github.event.repository.default_branch }}
 
-          Sigue estos pasos en orden:
+            Sigue estos pasos en orden:
 
-          1. Lee el issue con `gh issue view __NUMBER__ --json title,body,author,createdAt -q '.' --repo __REPO__`. Con eso obtienes toda la metadata.
-          2. Revisa si la primera línea del body ya contiene `<!-- format-issue -->`. Si es así, el issue ya fue formateado — detente sin modificar nada.
-          3. Clasifica el issue (título + cuerpo) para asignar una label. Prioridad: **bug > feature > question**.
-             - **bug**: error, bug, falla, fallo, crashea, crash, roto, rompe, no funciona, glitch.
-             - **feature**: agregar, añadir, nueva, nuevo, mejorar, feature, característica, sugerencia, idea, sería bueno, poder.
-             - **question**: cómo, como, pregunta, duda, ayuda, cuál, cual, ?.
-             Si ninguna keyword coincide, no apliques label.
-          4. Asegura que las labels existan (crea con `gh label create`; es idempotente con || true). Las labels son:
-             - `bug`: color d73a4a, descripción "Error o comportamiento inesperado"
-             - `feature`: color a2eeef, descripción "Nueva funcionalidad o mejora"
-             - `question`: color d876e3, descripción "Pregunta o duda"
-             Usa siempre `--repo __REPO__`.
-          5. Construye el nuevo cuerpo del issue en un archivo temporal (/tmp/issue-body.md). Debe tener esta estructura exacta, reemplazando los placeholders con los datos reales:
+            1. Lee el issue con `gh issue view ${{ github.event.issue.number }} --json title,body,author,createdAt -q '.' --repo ${{ github.repository }}`. Con eso obtienes toda la metadata.
 
-          ```
-          <!-- format-issue -->
+            2. Revisa si la primera línea del body ya contiene `<!-- format-issue -->`. Si es así, el issue ya fue formateado — detente sin modificar nada.
 
-          ## 📌 Información para revisión
+            3. Clasifica el issue (título + cuerpo) para asignar una label. Prioridad: **bug > feature > question**.
+               - **bug**: error, bug, falla, fallo, crashea, crash, roto, rompe, no funciona, glitch.
+               - **feature**: agregar, añadir, nueva, nuevo, mejorar, feature, característica, sugerencia, idea, sería bueno, poder.
+               - **question**: cómo, como, pregunta, duda, ayuda, cuál, cual, ?.
+               Si ninguna keyword coincide, no apliques label.
 
-          | Campo | Valor |
-          |---|---|
-          | Nº | #<número> |
-          | Autor | @<autor> |
-          | Creado | <fecha ISO> |
-          | Repo | `<repo>` |
-          | Branch base | `<branch default>` |
+            4. Asegura que las labels existan (crea con `gh label create`; es idempotente con || true). Las labels son:
+               - `bug`: color d73a4a, descripción "Error o comportamiento inesperado"
+               - `feature`: color a2eeef, descripción "Nueva funcionalidad o mejora"
+               - `question`: color d876e3, descripción "Pregunta o duda"
+               Usa siempre `--repo ${{ github.repository }}`.
 
-          ### Documentación relevante
-          - [README.md](https://github.com/<repo>/blob/<branch default>/README.md)
-          - [AGENTS.md](https://github.com/<repo>/blob/<branch default>/AGENTS.md)
+            5. Construye el nuevo cuerpo del issue en un archivo temporal (/tmp/issue-body.md). Debe tener esta estructura exacta, reemplazando los placeholders con los datos reales:
 
-          ---
+            ```
+            <!-- format-issue -->
 
-          ## 📋 Reporte original
+            ## 📌 Información para revisión
 
-          <body original tal cual, sin modificar nada>
-          ```
+            | Campo | Valor |
+            |---|---|
+            | Nº | #<número> |
+            | Autor | @<autor> |
+            | Creado | <fecha ISO> |
+            | Repo | `<repo>` |
+            | Branch base | `<branch default>` |
 
-          6. Aplica el nuevo cuerpo: `gh issue edit __NUMBER__ --body-file /tmp/issue-body.md --repo __REPO__`.
-          7. Si determinaste una label en el paso 3, aplícala: `gh issue edit __NUMBER__ --add-label "<label>" --repo __REPO__`.
+            ### Documentación relevante
+            - [README.md](https://github.com/<repo>/blob/<branch default>/README.md)
+            - [AGENTS.md](https://github.com/<repo>/blob/<branch default>/AGENTS.md)
 
-          Al terminar, confirma brevemente qué label se aplicó (o "sin coincidencia").
-          ENDOFPROMPT
+            ---
 
-          sed -i \
-            -e "s#__NUMBER__#$NUMBER#g" \
-            -e "s#__REPO__#$REPO#g" \
-            -e "s#__DEFAULT_BRANCH__#$DEFAULT_BRANCH#g" \
-            /tmp/issue-format-prompt.md
+            ## 📋 Reporte original
 
-          opencode --model opencode-go/kimi-k2.7 -p "$(cat /tmp/issue-format-prompt.md)"
+            <body original tal cual, sin modificar nada>
+            ```
+
+            6. Aplica el nuevo cuerpo: `gh issue edit ${{ github.event.issue.number }} --body-file /tmp/issue-body.md --repo ${{ github.repository }}`.
+
+            7. Si determinaste una label en el paso 3, aplícala: `gh issue edit ${{ github.event.issue.number }} --add-label "<label>" --repo ${{ github.repository }}`.
+
+            Al terminar, confirma brevemente qué label se aplicó (o "sin coincidencia").
