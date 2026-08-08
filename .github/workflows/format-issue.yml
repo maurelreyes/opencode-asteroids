@@ -29,38 +29,51 @@ jobs:
         with:
           model: opencode-go/kimi-k2.7-code
           use_github_token: true
-          prompt: |
-            Tu tarea es formatear un issue recién creado en GitHub. Usa gh CLI para todo.
+prompt: |
+            Tu tarea es enriquecer y formatear un issue recién creado en GitHub, añadiendo contexto que ayude a revisar y mejorar el requerimiento del usuario. Repositorio y issue están disponibles (checkout ya hecho), y cuentas con `gh` CLI + acceso al filesystem del repo.
 
             Datos del issue:
             - Nº: ${{ github.event.issue.number }}
             - Repo: ${{ github.repository }}
             - Branch base: ${{ github.event.repository.default_branch }}
+            - Working dir: el root del repo (usa grep/glob/read para investigar el código).
 
             Sigue estos pasos en orden:
 
-            1. Lee el issue con `gh issue view ${{ github.event.issue.number }} --json title,body,author,createdAt -q '.' --repo ${{ github.repository }}`. Con eso obtienes toda la metadata.
+            1. Lee el issue con `gh issue view ${{ github.event.issue.number }} --json title,body,author,createdAt -q '.' --repo ${{ github.repository }}`.
 
-            2. Revisa si la primera línea del body ya contiene `<!-- format-issue -->`. Si es así, el issue ya fue formateado — detente sin modificar nada.
+            2. Si la primera línea del body ya contiene `<!-- format-issue -->`, detente sin tocar nada.
 
-            3. Clasifica el issue (título + cuerpo) para asignar una label. Prioridad: **bug > feature > question**.
+            3. Clasifica el issue (título + cuerpo) por tipo. Prioridad: **bug > feature > question**.
                - **bug**: error, bug, falla, fallo, crashea, crash, roto, rompe, no funciona, glitch.
                - **feature**: agregar, añadir, nueva, nuevo, mejorar, feature, característica, sugerencia, idea, sería bueno, poder.
-               - **question**: cómo, como, pregunta, duda, ayuda, cuál, cual, ?.
-               Si ninguna keyword coincide, no apliques label.
+               - **question**: cómo, como, pregunta, duda, ayuda, cuál, cual, "?".
+               Si ninguna coincide, no apliques label.
 
-            4. Asegura que las labels existan (crea con `gh label create`; es idempotente con || true). Las labels son:
-               - `bug`: color d73a4a, descripción "Error o comportamiento inesperado"
-               - `feature`: color a2eeef, descripción "Nueva funcionalidad o mejora"
-               - `question`: color d876e3, descripción "Pregunta o duda"
-               Usa siempre `--repo ${{ github.repository }}`.
+            4. Asegura que las labels existan (idempotente con || true):
+               - `bug`: color d73a4a, desc "Error o comportamiento inesperado"
+               - `feature`: color a2eeef, desc "Nueva funcionalidad o mejora"
+               - `question`: color d876e3, desc "Pregunta o duda"
+               Siempre `--repo ${{ github.repository }}`.
 
-            5. Construye el nuevo cuerpo del issue en un archivo temporal (/tmp/issue-body.md). Debe tener esta estructura exacta, reemplazando los placeholders con los datos reales:
+            5. Investiga el repo para aportar contexto: usa grep/glob para buscar archivos relacionados con las palabras clave del issue (nombres de archivos, funciones, sistemas mencionados: ej. "nave", "asteroide", "score", "skins", "escudo", "power-up", "pausa"). Lee secciones de README.md y AGENTS.md para extraer convenciones relevantes. NO inventes rutas: usa solo archivos que existan.
+
+            6. Estima dos campos cualitativos en base al contenido (justifica mentalmente, no lo pongas en el cuerpo):
+               - **Prioridad sugerida**: baja / media / alta (según impacto aparente y urgencia)
+               - **Esfuerzo estimado**: XS / S / M / L (según cuánto código toque)
+
+            7. Redacta un resumen claro (2-3 frases) para alguien que llega sin contexto, y propón 3-6 criterios de aceptación accionables en checklist.
+
+            8. Identifica 0-3 aclaraciones pendientes (info faltante del usuario). Si no aplica, omite toda la sección.
+
+            9. Escribe el cuerpo final en /tmp/issue-body.md con esta plantilla EXACTA (sustituye placeholders por datos reales del issue y tus análisis; respeta saltos de línea y secciones). El bloque "## 📋 Reporte original" debe contener el body ORIGINAL del issue, sin cambios:
 
             ```
             <!-- format-issue -->
 
-            ## 📌 Información para revisión
+            > 🤖 Issue procesado automáticamente por el workflow `format-issue` (modelo: kimi-k2.7).
+
+            ## 📊 Clasificación automática
 
             | Campo | Valor |
             |---|---|
@@ -69,20 +82,44 @@ jobs:
             | Creado | <fecha ISO> |
             | Repo | `<repo>` |
             | Branch base | `<branch default>` |
+            | Tipo | `<tipo: bug/feature/question/none>` |
+            | Prioridad sugerida | `<baja/media/alta>` |
+            | Esfuerzo estimado | `<XS/S/M/L>` |
+
+            ## 📝 Resumen del requerimiento
+
+            <resumen reescrito en 2-3 frases, neutro, en español>
+
+            ## 🔍 Análisis de contexto
+
+            ### Archivos relevantes
+            - `ruta/archivo.ext` — <por qué está relacionado (1 frase)>
+            - (lista solo archivos que existan; sé conciso)
 
             ### Documentación relevante
-            - [README.md](https://github.com/<repo>/blob/<branch default>/README.md)
-            - [AGENTS.md](https://github.com/<repo>/blob/<branch default>/AGENTS.md)
+            - [README.md](https://github.com/<repo>/blob/<branch>/README.md)
+            - [AGENTS.md](https://github.com/<repo>/blob/<branch>/AGENTS.md)
+
+            ## ✅ Criterios de aceptación sugeridos
+
+            - [ ] <criterio 1 accionable>
+            - [ ] <criterio 2>
+            - [ ] <...>
+
+            ## ❓ Aclaraciones pendientes
+
+            - <pregunta 1, solo si hay info faltante>
+            - (omíteme toda la sección si no aplica)
 
             ---
 
             ## 📋 Reporte original
 
-            <body original tal cual, sin modificar nada>
+            <body del issue ORIGINAL, verbatim, sin ninguna modificación>
             ```
 
-            6. Aplica el nuevo cuerpo: `gh issue edit ${{ github.event.issue.number }} --body-file /tmp/issue-body.md --repo ${{ github.repository }}`.
+            10. Aplica el cuerpo: `gh issue edit ${{ github.event.issue.number }} --body-file /tmp/issue-body.md --repo ${{ github.repository }}`.
 
-            7. Si determinaste una label en el paso 3, aplícala: `gh issue edit ${{ github.event.issue.number }} --add-label "<label>" --repo ${{ github.repository }}`.
+            11. Si determinaste una label en el paso 3, aplícala: `gh issue edit ${{ github.event.issue.number }} --add-label "<label>" --repo ${{ github.repository }}`.
 
-            Al terminar, confirma brevemente qué label se aplicó (o "sin coincidencia").
+            Al terminar, confirma breve: tipo detectado, prioridad, archivos relevantes encontrados, y label aplicada (o "sin coincidencia").
