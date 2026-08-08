@@ -25,7 +25,7 @@ const justPressed = {};
 window.addEventListener('keydown', e => {
   justPressed[e.code] = !keys[e.code];
   keys[e.code] = true;
-  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace'].includes(e.code))
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Backspace','Enter'].includes(e.code))
     e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -391,6 +391,7 @@ function setSkin(i) {
 
 let currentSkin = loadSkin();
 let skinsCursor;
+let skinsReturn;
 
 function spawnAsteroids(count) {
   const SAFE_DIST = 130;
@@ -460,7 +461,7 @@ function killShip() {
 function update(dt) {
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
-    if (pressed('KeyS')) { state = 'skins'; skinsCursor = currentSkin; return; }
+    if (pressed('KeyS')) { state = 'skins'; skinsReturn = 'gameover'; skinsCursor = currentSkin; return; }
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => !p.dead);
     return;
@@ -469,10 +470,16 @@ function update(dt) {
   if (state === 'skins') {
     if (pressed('ArrowLeft'))  skinsCursor = (skinsCursor - 1 + SKINS.length) % SKINS.length;
     if (pressed('ArrowRight')) skinsCursor = (skinsCursor + 1) % SKINS.length;
-    if (pressed('Enter') || pressed('Space')) { setSkin(skinsCursor); state = 'gameover'; }
-    if (pressed('Escape') || pressed('Backspace')) { state = 'gameover'; }
+    if (pressed('Enter') || pressed('Space')) { setSkin(skinsCursor); state = skinsReturn; }
+    if (pressed('Escape') || pressed('Backspace')) { state = skinsReturn; }
     particles.forEach(p => p.update(dt));
     particles = particles.filter(p => !p.dead);
+    return;
+  }
+
+  if (state === 'paused') {
+    if (pressed('Enter')) { state = 'playing'; return; }
+    if (pressed('KeyS')) { state = 'skins'; skinsReturn = 'paused'; skinsCursor = currentSkin; return; }
     return;
   }
 
@@ -486,6 +493,9 @@ function update(dt) {
     if (deadTimer <= 0) { state = 'playing'; ship.reset(); }
     return;
   }
+
+  // Pausar
+  if (pressed('Enter')) { state = 'paused'; return; }
 
   // Disparar
   if (pressed('Space')) {
@@ -763,6 +773,12 @@ function draw() {
 
   if (state === 'gameover')
     drawOverlay('GAME OVER', `PUNTAJE: ${score} · ESPACIO REINICIAR · S SKINS`);
+
+  if (state === 'paused') {
+    ctx.fillStyle = 'rgba(5,7,10,0.55)';
+    ctx.fillRect(0, 0, W, H);
+    drawOverlay('PAUSA', 'ENTER REANUDAR · S SKINS');
+  }
 
   if (state === 'skins')
     drawSkinsMenu();
