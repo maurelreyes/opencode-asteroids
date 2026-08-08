@@ -5,6 +5,19 @@ const ctx = canvas.getContext('2d');
 const W = 800;
 const H = 600;
 
+// ── Paleta & tipografía compartida con el gabinete ────────────────────────
+const HUD_FG = '#7AF2C1';
+const HUD_HL = '#FFB347';
+const HUD_TX = '#E6F2EC';
+const HUD_MU = 'rgba(150,180,200,0.45)';
+
+const HUDF = {
+  s:   '700 15px "JetBrains Mono", ui-monospace, monospace',
+  t:   '400 11px "JetBrains Mono", ui-monospace, monospace',
+  big: '700 46px "Michroma", "JetBrains Mono", monospace',
+  med: '400 18px "JetBrains Mono", ui-monospace, monospace',
+};
+
 // ── Input ─────────────────────────────────────────────────────────────────────
 const keys = {};
 const justPressed = {};
@@ -50,7 +63,7 @@ class Bullet {
   }
 
   draw() {
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = HUD_TX;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fill();
@@ -105,7 +118,7 @@ class Asteroid {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = HUD_TX;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
     ctx.beginPath();
@@ -322,7 +335,7 @@ class Particle {
 
   draw() {
     const alpha = this.ttl / this.life;
-    ctx.strokeStyle = `rgba(255,255,255,${alpha.toFixed(2)})`;
+    ctx.strokeStyle = `rgba(230,242,236,${alpha.toFixed(2)})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y);
@@ -600,64 +613,72 @@ function drawLifeIcon(x, y) {
 }
 
 function drawHUD() {
-  ctx.fillStyle = '#fff';
-  ctx.font = '15px monospace';
-
   ctx.textAlign = 'left';
-  ctx.fillText(`SCORE  ${score}`, 14, 26);
+
+  ctx.font = HUDF.t;
+  ctx.fillStyle = HUD_MU;
+  ctx.fillText('SCORE', 14, 20);
+  ctx.font = HUDF.s;
+  ctx.fillStyle = HUD_TX;
+  ctx.fillText(String(score), 14, 38);
 
   ctx.textAlign = 'center';
-  ctx.fillText(`NIVEL ${level}`, W / 2, 26);
+  ctx.font = HUDF.t;
+  ctx.fillStyle = HUD_MU;
+  ctx.fillText('NIVEL', W / 2, 20);
+  ctx.font = HUDF.s;
+  ctx.fillStyle = HUD_TX;
+  ctx.fillText(String(level), W / 2, 38);
 
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
 
   if (speedBoost > 0 || tripleShot > 0) {
-    ctx.font = 'bold 17px monospace';
     ctx.textAlign = 'center';
     let y = H - 16;
     if (speedBoost > 0) {
-      ctx.fillStyle = 'cyan';
+      ctx.font = HUDF.s;
+      ctx.fillStyle = HUD_FG;
       ctx.fillText(`VELOCIDAD ${speedBoost.toFixed(1)}s`, W / 2, y);
       y -= 22;
     }
     if (tripleShot > 0) {
-      ctx.fillStyle = '#ff00ff';
+      ctx.font = HUDF.s;
+      ctx.fillStyle = HUD_HL;
       ctx.fillText(`TRIPLE ${tripleShot.toFixed(1)}s`, W / 2, y);
     }
   }
 
-  const barW = 140, barH = 8, bx = 14, by = H - 22;
-  ctx.fillStyle = '#fff';
-  ctx.font = '11px monospace';
+  const barW = 140, barH = 8, bx = 14, by = H - 24;
   ctx.textAlign = 'left';
+  ctx.font = HUDF.t;
+  ctx.fillStyle = HUD_MU;
   ctx.fillText('ESCUDO', bx, by - 4);
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.strokeStyle = HUD_MU;
   ctx.lineWidth = 1;
   ctx.strokeRect(bx, by, barW, barH);
   const fillW = barW * (shieldEnergy / SHIELD_MAX);
-  ctx.fillStyle = shieldActive ? 'rgba(80,180,255,0.85)' : 'rgba(80,180,255,0.4)';
+  ctx.fillStyle = shieldActive ? 'rgba(255,179,71,0.80)' : 'rgba(122,242,193,0.40)';
   ctx.fillRect(bx, by, fillW, barH);
-
 }
 
 function drawOverlay(title, sub) {
   ctx.textAlign   = 'center';
-  ctx.fillStyle   = '#fff';
-  ctx.font        = 'bold 46px monospace';
-  ctx.fillText(title, W / 2, H / 2 - 18);
-  ctx.font        = '18px monospace';
-  ctx.fillStyle   = 'rgba(255,255,255,0.65)';
-  ctx.fillText(sub, W / 2, H / 2 + 22);
+  ctx.fillStyle   = HUD_FG;
+  ctx.font        = HUDF.big;
+  ctx.fillText(title, W / 2, H / 2 - 24);
+  ctx.font        = HUDF.med;
+  ctx.fillStyle   = HUD_MU;
+  ctx.fillText(sub, W / 2, H / 2 + 18);
 }
 
 function drawSkinsMenu() {
-  ctx.fillStyle = 'rgba(0,0,0,0.82)';
+  ctx.fillStyle = 'rgba(5,7,10,0.88)';
   ctx.fillRect(0, 0, W, H);
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 36px monospace';
+  ctx.fillStyle = HUD_FG;
+  ctx.font = HUDF.big;
   ctx.fillText('SKINS', W / 2, 80);
 
   const spacing = 160;
@@ -671,7 +692,7 @@ function drawSkinsMenu() {
     const sel = i === skinsCursor;
 
     if (sel) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.strokeStyle = 'rgba(122,242,193,0.45)';
       ctx.lineWidth = 2;
       const bx = x - 44;
       const by = y - 48;
@@ -717,19 +738,19 @@ function drawSkinsMenu() {
     ctx.restore();
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = sel ? '#fff' : 'rgba(255,255,255,0.45)';
-    ctx.font = sel ? 'bold 16px monospace' : '14px monospace';
+    ctx.fillStyle = sel ? HUD_TX : 'rgba(230,242,236,0.25)';
+    ctx.font = sel ? HUDF.s : '400 14px "JetBrains Mono", ui-monospace, monospace';
     ctx.fillText(SKINS[i].name, x, previewY + 62);
   }
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = '15px monospace';
-  ctx.fillText('← →  SELECCIONAR    ENTER  CONFIRMAR    ESC  CANCELAR', W / 2, H - 38);
+  ctx.fillStyle = HUD_MU;
+  ctx.font = '400 13px "JetBrains Mono", ui-monospace, monospace';
+  ctx.fillText('← → SELECCIONAR    ENTER CONFIRMAR    ESC CANCELAR', W / 2, H - 38);
 }
 
 function draw() {
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = '#05070A';
   ctx.fillRect(0, 0, W, H);
 
   particles.forEach(p => p.draw());
@@ -741,7 +762,7 @@ function draw() {
   drawHUD();
 
   if (state === 'gameover')
-    drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO REINICIAR   —   S SKINS`);
+    drawOverlay('GAME OVER', `PUNTAJE: ${score} · ESPACIO REINICIAR · S SKINS`);
 
   if (state === 'skins')
     drawSkinsMenu();

@@ -2,25 +2,266 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Asteroids</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Michroma&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --void:     #05070A;
+      --phosphor: #7AF2C1;
+      --amber:    #FFB347;
+      --ink:      #0A0F14;
+      --bone:     #E6F2EC;
+      --steel:    #2A3540;
+      --steel-dim: rgba(42,53,64,0.5);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: var(--void);
+      font-family: "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+      color: var(--bone);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
     body {
-      background: #000;
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
+      padding: 20px;
     }
-    canvas {
+
+    canvas { display: block; }
+
+    /* ── Stage ──────────────────────────────────── */
+
+    .stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
+    /* ── Cabinet ────────────────────────────────── */
+
+    .cabinet {
+      background: var(--ink);
+      border: 1px solid var(--steel);
+      padding: 28px 36px 24px;
+      max-width: 900px;
+      width: fit-content;
+    }
+
+    /* ── Plaque (header) ────────────────────────── */
+
+    .plaque {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .plaque h1 {
+      font-family: "Michroma", sans-serif;
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: 0.62em;
+      color: var(--phosphor);
+      text-shadow: 0 0 18px rgba(122,242,193,0.35);
+      animation: power-on 0.72s ease-out both;
+      margin: 0;
+      line-height: 1;
+    }
+
+    @keyframes power-on {
+      0%   { letter-spacing: 1.4em; opacity: 0.15; filter: blur(4px); }
+      60%  { letter-spacing: 0.58em; opacity: 1; filter: blur(0); }
+      100% { letter-spacing: 0.62em; }
+    }
+
+    .plaque .rule {
       display: block;
-      border: 1px solid #222;
+      height: 1px;
+      background: var(--steel);
+      margin: 14px 0 10px;
+    }
+
+    .plaque .tag {
+      font-size: 0.625rem;
+      font-weight: 400;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--steel-dim);
+    }
+
+    /* ── Screen (canvas wrapper) ────────────────── */
+
+    .screen {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      overflow: hidden;
+      box-shadow:
+        0 0 28px 0 rgba(122,242,193,0.10),
+        0 0 6px  0 rgba(122,242,193,0.14);
+      border: 1px solid var(--steel);
+    }
+
+    /* ── Scanline overlay ───────────────────────── */
+
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 3px
+      );
+    }
+
+    .scanlines::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        transparent 40%,
+        rgba(122,242,193,0.025) 50%,
+        transparent 60%
+      );
+      transform: translateY(-100%);
+      animation: scan-sweep 4.2s linear infinite;
+    }
+
+    @keyframes scan-sweep {
+      from { transform: translateY(-100%); }
+      to   { transform: translateY(100%); }
+    }
+
+    /* ── Vignette ───────────────────────────────── */
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 62%,
+        rgba(5,7,10,0.3) 88%,
+        rgba(5,7,10,0.6) 100%
+      );
+    }
+
+    /* ── Panel (controls strip) ─────────────────── */
+
+    .panel {
+      display: flex;
+      justify-content: center;
+      gap: 22px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .panel .ctl {
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--steel-dim);
+    }
+
+    .panel kbd {
+      font-family: inherit;
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--amber);
+      background: rgba(255,179,71,0.08);
+      border: 1px solid rgba(255,179,71,0.18);
+      border-radius: 3px;
+      padding: 1px 5px;
+      min-width: 1.2em;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* ── Credit ─────────────────────────────────── */
+
+    .credit {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 0.58rem;
+      letter-spacing: 0.14em;
+      color: rgba(42,53,64,0.35);
+    }
+
+    /* ── Reduced motion ─────────────────────────── */
+
+    @media (prefers-reduced-motion: reduce) {
+      .plaque h1 { animation: none; }
+      .scanlines::after { animation: none; display: none; }
+    }
+
+    /* ── Responsive ─────────────────────────────── */
+
+    @media (max-width: 920px) {
+      .cabinet {
+        padding: 18px 14px 16px;
+      }
+      .screen {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4/3;
+      }
+      .screen canvas {
+        width: 100%;
+        height: 100%;
+      }
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 10px; align-items: flex-start; }
+      .cabinet { padding: 12px 8px 12px; }
+      .plaque h1 { font-size: 1.1rem; letter-spacing: 0.44em; }
+      .plaque .tag { font-size: 0.52rem; }
+      .panel { gap: 10px; margin-top: 14px; }
+      .panel .ctl { font-size: 0.6rem; }
+      .panel kbd { font-size: 0.55rem; padding: 0 4px; }
+      .credit { font-size: 0.5rem; margin-top: 10px; }
     }
   </style>
 </head>
 <body>
-  <canvas id="canvas" width="800" height="600"></canvas>
+  <div class="stage">
+    <div class="cabinet">
+      <header class="plaque">
+        <h1>ASTEROIDS</h1>
+        <span class="rule" aria-hidden="true"></span>
+        <span class="tag">Vector Arcade</span>
+      </header>
+      <div class="screen">
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div class="scanlines" aria-hidden="true"></div>
+        <div class="vignette" aria-hidden="true"></div>
+      </div>
+      <footer class="panel">
+        <div class="ctl"><kbd>◀&#xA0;▶</kbd> ROTAR</div>
+        <div class="ctl"><kbd>▲</kbd> PROPULSAR</div>
+        <div class="ctl"><kbd>ESP</kbd> DISPARAR</div>
+        <div class="ctl"><kbd>⇧</kbd> ESCUDO</div>
+      </footer>
+      <p class="credit">A PORT FOR THE MODERN CRT</p>
+    </div>
+  </div>
   <script src="game.js"></script>
 </body>
 </html>
