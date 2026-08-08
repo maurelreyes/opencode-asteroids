@@ -27,7 +27,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: opencode-go/kimi-k2.7
+          model: opencode-go/kimi-k2.7-code
           use_github_token: true
           prompt: |
             Tu tarea es formatear un issue recién creado en GitHub. Usa gh CLI para todo.
